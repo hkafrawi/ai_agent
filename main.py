@@ -121,12 +121,12 @@ tools = [
     }
 ]
 
-system_prompt = """You are a helpful weather assistant. 
-ALWAYS respond in valid JSON format with these exact fields:
-{
-    "temperature": <float>,
-    "response": "<string>"
-}"""
+system_prompt = """You are a helpful weather assistant. make sure to consider the following
+- Get the latitude and longitude of the user's desired location from the internet. do not expect the user to provide latitude and longitude.
+- If the user provides a location, use that location to get the latitude and longitude.
+- use the get_weather tool to provide the current weather. 
+- DO NOT reply back to user asking for more information.
+- if the location provided is a large area, use the center of the area."""
 
 messages = [
     {"role": "system", "content": system_prompt},
@@ -158,17 +158,21 @@ for tool_call in completion.choices[0].message.tool_calls:
     })
 
 
-final_completion = client.chat.completions.create(
-    model="deepseek-chat",
+final_completion = get_structured_response(
+    client_object=client,
     messages=messages,
-    response_format={"type": "json_object"}  # Specify the response format
+    model="deepseek-chat",
+    tools=tools,
+    object_structure=WeatherResponse
 )
 
-final_completion.model_dump()
 
-try:
-    response_data = json.loads(final_completion.choices[0].message.content)
-    print(f"Temperature: {response_data['temperature']}°C")
-    print(f"Response: {response_data['response']}")
-except json.JSONDecodeError:
-    print("Failed to parse JSON response:", final_completion.choices[0].message.content)
+# final_completion = client.chat.completions.create(
+#     model="deepseek-chat",
+#     messages=messages,
+#     response_format={"type": "json_object"}  # Specify the response format
+# )
+
+print(type(final_completion))
+print(final_completion)   
+print(final_completion.model_dump())   
