@@ -52,6 +52,46 @@ client = OpenAI(api_key=deep_seek_api_key, base_url="https://api.deepseek.com")
 #     client, meeting_statement
 # )
 # print(meeting)  
+def get_structured_response(client_object, messages, model, tools, object_structure) -> BaseModel:
+    """Generates a structured response from the AI model."""
+
+    field_descriptions = {
+    name: field.description
+    for name, field in object_structure.model_fields.items()
+    }
+
+    for item in messages:
+        try:
+            if item["role"] == "system":
+                original_content = item["content"]
+                item["content"] = f"""The following is your system prompt:
+                                {original_content}
+        
+                                Ensure your response is in valid JSON format with these exact fields:
+                                {field_descriptions}"""
+                break
+        except TypeError:
+            continue
+
+    response = client_object.chat.completions.create(
+            model=model,  
+            messages=messages,
+            response_format={"type": "json_object"},
+            tools=tools, 
+            temperature = 1.0  
+        )
+    
+    try:
+        # print(response.model_dump())
+        json_str = response.choices[0].message.content
+        data = json.loads(json_str)
+
+        structured_response = object_structure(**data)
+
+        return structured_response
+    except (KeyError, json.JSONDecodeError) as e:
+        raise ValueError(f"Failed to parse response: {e}")
+    
 
 def get_weather(latitude, longitude):
     """This is a publically available API that returns the weather for a given location."""
