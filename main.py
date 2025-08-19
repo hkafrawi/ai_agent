@@ -136,10 +136,10 @@ completion = client.chat.completions.create(
     model="deepseek-chat",
     messages=messages,
     tools=tools,  # Automatically choose the best tool
-    temperature=1.0
+    temperature=0.7
 )
 
-completion.model_dump()
+# print(completion.model_dump())
 
 def call_function(name, args):
     if name == "get_weather":
@@ -157,6 +157,9 @@ for tool_call in completion.choices[0].message.tool_calls:
         "tool_call_id": tool_call.id  # Critical: Match the original call
     })
 
+class WeatherResponse(BaseModel):
+    temperature: float = Field(description="Current temperature in Celsius")
+    response: str = Field(description="A natural language response to the user's question.")
 
 final_completion = get_structured_response(
     client_object=client,
