@@ -99,6 +99,8 @@ completion = client.chat.completions.create(
     temperature=1.0
 )
 
+completion.model_dump()
+
 def call_function(name, args):
     if name == "get_weather":
         return get_weather(**args)
@@ -122,54 +124,11 @@ final_completion = client.chat.completions.create(
     response_format={"type": "json_object"}  # Specify the response format
 )
 
+final_completion.model_dump()
+
 try:
     response_data = json.loads(final_completion.choices[0].message.content)
     print(f"Temperature: {response_data['temperature']}°C")
     print(f"Response: {response_data['response']}")
 except json.JSONDecodeError:
     print("Failed to parse JSON response:", final_completion.choices[0].message.content)
-
-# # 2. Check for tool call
-# if completion.choices[0].message.tool_calls:
-#     tool_call = completion.choices[0].message.tool_calls[0]
-    
-#     if tool_call.function.name == "get_weather":
-#         # 3. Execute function
-#         args = json.loads(tool_call.function.arguments)
-#         weather_data = get_weather(args["latitude"], args["longitude"])
-        
-#         # 4. Append BOTH the assistant's tool call AND tool response
-#         messages.append({
-#             "role": "assistant",
-#             "content": None,
-#             "tool_calls": [tool_call]  # Original tool call
-#         })
-        
-#         messages.append({
-#             "role": "tool",
-#             "name": "get_weather",
-#             "content": json.dumps(weather_data),
-#             "tool_call_id": tool_call.id  # Critical: Match the original call
-#         })
-        
-#         # 5. Get final response
-#         final_response = client.chat.completions.create(
-#             model="deepseek-chat",
-#             messages=messages
-#         )
-#         print(final_response.choices[0].message.content)
-
-# print(completion.model_dump())
-# print(completion.choices[0].message.content) 
-# print(get_weather(52.52,13.405)) # Print the model dump for debugging
-
-# response = client.chat.completions.create(
-#     model="deepseek-chat",
-#     messages=[
-#         {"role": "system", "content": "You are a helpful assistant"},
-#         {"role": "user", "content": "Hello"},
-#     ],
-#     stream=False
-# )
-
-# print(response.choices[0].message.content)
