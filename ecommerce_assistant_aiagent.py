@@ -11,7 +11,7 @@ import json
 import os
 
 from openai import OpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 config = configparser.ConfigParser()
 config.read("config.ini")
@@ -66,10 +66,14 @@ def get_structured_response(client_object, messages, model, tools, object_struct
 
         structured_response = object_structure(**data)
 
-        return structured_response
-    except (KeyError, json.JSONDecodeError) as e:
-        raise ValueError(f"Failed to parse response: {e}")
-
+        return structured_response, response
+    except (KeyError, json.JSONDecodeError, ValidationError) as e:
+        print(f"\n")
+        print(f"Failed to parse response: {e}")
+        print("Returning response as is...")
+        return None, response
+    
+    
 def load_kb(question: str):
     """
     Load the whole knowledge base from the JSON file.
@@ -101,7 +105,15 @@ tools = [
     }
 ]
 
-system_prompt = "You are a helpful assistant that answers questions from the knowledge base about our e-commerce store."
+system_prompt = """You are a helpful assistant that answers questions
+                    from the knowledge base about our e-commerce store.
+                    
+                    - If a user asks a question that is not in the knowledge base but related to the store,
+                    you should respond with "I don't know the answer to that question."
+                    - If a user asks a question that is not in the knowledge base and not related to the store,
+                    you should respond with "Please ask questions only related to our e-commerce store."
+                    """
+
 
 messages = [
     {"role": "system", "content": system_prompt},
@@ -117,8 +129,8 @@ completion = client.chat.completions.create(
 # --------------------------------------------------------------
 # Step 2: Model decides to call function(s)
 # --------------------------------------------------------------
-print(f"\n")
-print(completion.model_dump())
+# print(f"\n")
+# print(completion.model_dump())
 
 # --------------------------------------------------------------
 # Step 3: Execute search_kb function
@@ -150,7 +162,7 @@ class KBResponse(BaseModel):
     source: int = Field(description="The record id of the answer.")
 
 
-final_completion = get_structured_response(
+final_completion, final_completion_response = get_structured_response(
     client_object=client,
     messages=messages,
     model="deepseek-chat",
@@ -162,24 +174,110 @@ final_completion = get_structured_response(
 # Step 5: Check model response
 # --------------------------------------------------------------
 print(f"\n")
-print(final_completion.model_dump())
+try:
+    print(final_completion.model_dump())
+except Exception as e:
+    print(f"Error: {e}")
+    print("returning raw response instead...")
+    print("Response content:", final_completion_response.choices[0].message.content)
 
 # --------------------------------------------------------------
-# Question that doesn't trigger the tool?
+# Question that isnt related to the store
 # --------------------------------------------------------------
 
-# returns error, must create try except block to handle this
+print("\n")
+print("--------------------------------------------------------------")
+print("Question that isnt related to the store")
+print("--------------------------------------------------------------")
+
 messages = [
     {"role": "system", "content": system_prompt},
     {"role": "user", "content": "What is the weather in Tokyo?"},
 ]
 
-final_completion_2 = get_structured_response(
-    client_object=client,
-    messages=messages,
+completion = client.chat.completions.create(
     model="deepseek-chat",
+    messages=messages,
     tools=tools,
-    object_structure=KBResponse
 )
-print(f"\n")
-print(final_completion_2.model_dump())
+
+try:
+    for tool_call in completion.choices[0].message.tool_calls:
+        name = tool_call.function.name
+        args = json.loads(tool_call.function.arguments)
+        messages.append(completion.choices[0].message)
+
+        result = call_function(name, args)
+        messages.append(
+            {"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(result)}
+        )
+except Exception as e:
+    print(f"Error: {e}")
+    print(completion.model_dump())
+else:
+    final_completion_2, final_completion_2_response = get_structured_response(
+        client_object=client,
+        messages=messages,
+        model="deepseek-chat",
+        tools=tools,
+        object_structure=KBResponse
+    )
+
+    print(f"\n")
+    try:
+        print(final_completion_2.model_dump())
+    except Exception as e:
+        print(f"Error: {e}")
+        print("returning raw response instead...")
+        print(final_completion_2_response.model_dump())
+        print(f"\n")
+
+# --------------------------------------------------------------
+# Question that is related to the store but not int the knowledge base
+# --------------------------------------------------------------
+
+print("\n")
+print("--------------------------------------------------------------")
+print("Question that is related to the store but not in the knowledge base")
+print("--------------------------------------------------------------")
+
+messages = [
+    {"role": "system", "content": system_prompt},
+    {"role": "user", "content": "Do you have any discounts available?"},
+]
+
+completion = client.chat.completions.create(
+    model="deepseek-chat",
+    messages=messages,
+    tools=tools,
+)
+try:
+    for tool_call in completion.choices[0].message.tool_calls:
+        name = tool_call.function.name
+        args = json.loads(tool_call.function.arguments)
+        messages.append(completion.choices[0].message)
+
+        result = call_function(name, args)
+        messages.append(
+            {"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(result)}
+        )
+except Exception as e:
+    print(f"Error: {e}")
+    print(completion.model_dump())
+else:
+    final_completion_3, final_completion_3_response = get_structured_response(
+        client_object=client,
+        messages=messages,
+        model="deepseek-chat",
+        tools=tools,
+        object_structure=KBResponse
+    )
+
+    print(f"\n")
+    try:
+        print(final_completion_3.model_dump())
+    except Exception as e:
+        print(f"Error: {e}")
+        print("returning raw response instead...")
+        print(final_completion_3_response.model_dump())
+        print(f"\n")
