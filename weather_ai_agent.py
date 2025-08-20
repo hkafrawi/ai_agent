@@ -1,7 +1,16 @@
+"""
+weather_ai_agent.py
+
+This script demonstrates my understanding of building an AI agent that can use 
+tools to answer user queries, specifically for fetching weather information.
+
+I had to create a dedicated function to get a structured response 
+using the DeepSeek API, which does not support the parse method.
+"""
+
+
 import configparser
 from openai import OpenAI
-from CalendarMeeting import CalendarMeeting
-from datetime import datetime
 import json
 import requests
 from pydantic import BaseModel, Field
@@ -12,48 +21,20 @@ deep_seek_api_key = config.get("API_KEYS", "openai_key")
 
 client = OpenAI(api_key=deep_seek_api_key, base_url="https://api.deepseek.com")
 
-# def parse_meeting(client, user_prompt: str) -> CalendarMeeting:
-#     # Force JSON output via system prompt
-#     response = client.chat.completions.create(
-#         model="deepseek-chat",  # Use the correct model name
-#         messages=[
-#             {
-#                 "role": "system",
-#                 "content": """Extract meeting details and return STRICT JSON with these EXACT fields:
-#                         {
-#                             "date": "ISO 8601 datetime (e.g., 2025-08-04T17:00:00)",
-#                             "place": "meeting location",
-#                             "participants": ["list", "of", "names"]
-#                         }"""
-#             },
-#             {"role": "user", "content": user_prompt}
-#         ],
-#         response_format={"type": "json_object"}, # Ensure response is in JSON format
-#         temperature = 1.0  
-#     )
-    
-#     # Parse the JSON response
-#     try:
-#         json_str = response.choices[0].message.content
-#         data = json.loads(json_str)
-        
-#         return CalendarMeeting(
-#             date=datetime.fromisoformat(data["date"]),
-#             place=data["place"],
-#             participants=data["participants"]
-#         )
-#     except (KeyError, json.JSONDecodeError) as e:
-#         raise ValueError(f"Failed to parse response: {e}")
+# --------------------------------------------------------------
+# Define the the classes and functions we need to use
+# --------------------------------------------------------------
 
-# # Example usage of parse_meeting function
-
-# meeting_statement = "Arthur and Nora were having lunch today with Mustafa. Mustafa said he will have a meeting today with Nora at 9pm in the office."
-# meeting = parse_meeting(
-#     client, meeting_statement
-# )
-# print(meeting)  
 def get_structured_response(client_object, messages, model, tools, object_structure) -> BaseModel:
-    """Generates a structured response from the AI model."""
+    """Generates a structured response from the AI model.
+       This primarily for deep-seek-chat model, which does not
+       support the parse method.
+    Args:
+        client_object: The OpenAI client object.
+        messages: List of messages to send to the model.
+        model: The model to use for generating the response.
+        tools: List of tools available for the model to use.
+        object_structure: Pydantic model defining the structure of the expected response."""
 
     field_descriptions = {
     name: field.description
@@ -101,6 +82,18 @@ def get_weather(latitude, longitude):
     data = response.json()
     return data["current"]
 
+class WeatherResponse(BaseModel):
+    temperature: float = Field(description="<float> - Current temperature in Celsius")
+    response: str = Field(description="<string> A natural language response to the user's question.")
+
+def call_function(name, args):
+    if name == "get_weather":
+        return get_weather(**args)
+    
+# --------------------------------------------------------------
+# Step 1: Call model with get_weather tool defined
+# --------------------------------------------------------------
+
 tools = [
     {
         "type": "function",
@@ -139,27 +132,36 @@ completion = client.chat.completions.create(
     temperature=0.7
 )
 
-# print(completion.model_dump())
+# --------------------------------------------------------------
+# Step 2: Check if model decides to call function(s)
+# --------------------------------------------------------------
 
-def call_function(name, args):
-    if name == "get_weather":
-        return get_weather(**args)
+print(completion.model_dump())
+# We check whether the model has decided to use the get_weather function 
+# and which parameters it has provided. 
+#
+# NB the AI agent does NOT call the function directly, we have to do that
+# ourselves in the next step.
+
+# --------------------------------------------------------------
+# Step 3: Execute get_weather function
+# --------------------------------------------------------------
     
 for tool_call in completion.choices[0].message.tool_calls:
     name = tool_call.function.name
     args = json.loads(tool_call.function.arguments)
     messages.append(completion.choices[0].message) 
 
-    result = call_function(name, args)
+    result = call_function(name, args) # This is where the function is called
     messages.append({
         "role": "tool",
         "content": json.dumps(result),
         "tool_call_id": tool_call.id  # Critical: Match the original call
-    })
+    }) # We append the result of get_weather to the messages list to reask the model again
 
-class WeatherResponse(BaseModel):
-    temperature: float = Field(description="Current temperature in Celsius")
-    response: str = Field(description="A natural language response to the user's question.")
+# --------------------------------------------------------------
+# Step 4: Supply result and call model again
+# --------------------------------------------------------------
 
 final_completion = get_structured_response(
     client_object=client,
@@ -167,15 +169,10 @@ final_completion = get_structured_response(
     model="deepseek-chat",
     tools=tools,
     object_structure=WeatherResponse
-)
+) # Reminder: This returns a WeatherResponse object
 
+# --------------------------------------------------------------
+# Step 5: Check model response
+# --------------------------------------------------------------
 
-# final_completion = client.chat.completions.create(
-#     model="deepseek-chat",
-#     messages=messages,
-#     response_format={"type": "json_object"}  # Specify the response format
-# )
-
-print(type(final_completion))
-print(final_completion)   
 print(final_completion.model_dump())   
