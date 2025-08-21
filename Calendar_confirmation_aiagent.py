@@ -136,6 +136,7 @@ def determine_event_extraction(user_input: str,data_structure = EventExtractionM
     )
     result = response.choices[0].message.content
     logger.info("Event extraction analysis completed.")
+    result = json.loads(result)
     log_json(result)
                 
     
@@ -170,6 +171,7 @@ def extract_event_details(description: str, data_structure=EventDetailsModel) ->
     
     result = response.choices[0].message.content
     logger.info("Event details extraction completed.")
+    result = json.loads(result)
     log_json(result)
     
     return result
@@ -199,6 +201,7 @@ def generate_confirmation_message(event_details: json, data_structure=Confirmati
     
     result = response.choices[0].message.content
     logger.info("Confirmation message generation completed.")
+    result = json.loads(result)
     log_json(result)
     
     return result
@@ -225,7 +228,7 @@ def process_calendar_request(user_input: str) -> json:
         return None
     
     logger.info("Input is confirmed as a calendar event.")
-    
+
     # Step 2: Extract details of the calendar event
     event_details = extract_event_details(event_extraction["description"])
     
@@ -235,3 +238,24 @@ def process_calendar_request(user_input: str) -> json:
     logger.info("Calendar request processing completed.")
     
     return confirmation_message
+
+# --------------------------------------------------------------
+# Step 3: Test the chain 
+# --------------------------------------------------------------
+
+# Valid calendar event request
+user_input = "Let's schedule a 1h team meeting next Tuesday at 2pm with Said and Arthur to discuss the project roadmap. Mel doesnt need to attend"
+result = process_calendar_request(user_input)
+if result:
+    logger.info(f"Confirmation: {result['confirmation_message']}")
+else:
+    logger.info(f"This doesn't appear to be a calendar event request.")
+
+# Invalid calendar event request
+user_input = "Can you send an email to Alice and Bob to discuss the project roadmap?"
+result = process_calendar_request(user_input)
+if result:
+    logger.info(f"Confirmation: {result['confirmation_message']}")
+
+else:
+    logger.info("This doesn't appear to be a calendar event request.")
