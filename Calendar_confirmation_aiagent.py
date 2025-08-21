@@ -80,9 +80,35 @@ ConfirmationMessageModel = [{
     "required": True
 }]
 
+data_model_descriptions = """
+Always return a JSON object using the following format:
+Below is the schema describing the fields.
+
+Schema:
+{schema_here}
+
+### INSTRUCTIONS
+- Use the `name` field as the key in the JSON output.  
+- Generate a value according to its `description` and `data_type`.  
+- Only include the keys (do not include `description`, `data_type`, or `required` in the output).  
+- If `required` is false, return a null value for that key.  
+- Your entire response must be a single valid JSON object, with no additional text, explanation, or Markdown formatting.  
+
+### OUTPUT FORMAT (example)
+{{
+  "field1": <value>,
+  "field2": <value>,
+  ...
+}}
+
+"""
+
 #function to print output from model
 log_json = lambda data: logger.info(json.dumps(data, indent=2))
 
+# --------------------------------------------------------------
+# Step 2: Define the functions
+# --------------------------------------------------------------
 
 def determine_event_extraction(user_input: str,data_structure = EventExtractionModel) -> json:
     """
@@ -100,11 +126,7 @@ def determine_event_extraction(user_input: str,data_structure = EventExtractionM
             {
                 "role": "system",
                 "content": f"""{date_context}. Analyze if the text describes a calendar event.
-                always return a JSON object using the following format:
-                {json.dumps(data_structure, indent=2)} \n
-                the name describes the name of the key, the desctipion describes the value of the key, 
-                the data_type describes the type of the value, 
-                and required indicates whether the key is required or not. 
+                {data_model_descriptions.format(schema_here=json.dumps(data_structure, indent=2))}  
                 """
             },
             {"role": "user", "content": user_input}
@@ -134,13 +156,10 @@ def extract_event_details(description: str, data_structure=EventDetailsModel) ->
         messages=[
             {
                 "role": "system",
-                "content": f"""{date_context}.Extract the calendar event details from the text.
+                "content": f"""
+                {date_context}.Extract the calendar event details from the text.
                 If need be, use the current date as a reference.
-                always return a JSON object using the following format:
-                {json.dumps(data_structure, indent=2)} \n
-                the name describes the name of the key, the desctipion describes the value of the key, 
-                the data_type describes the type of the value, 
-                and required indicates whether the key is required or not. 
+                {data_model_descriptions.format(schema_here=json.dumps(data_structure, indent=2))}
                 """
             },
             {"role": "user", "content": description}
@@ -169,11 +188,7 @@ def generate_confirmation_message(event_details: json, data_structure=Confirmati
                 "role": "system",
                 "content": f"""Generate a natural language confirmation message for the calendar event.
                 Sign of with your name; Bob
-                always return a JSON object using the following format:
-                {json.dumps(data_structure, indent=2)} \n
-                the name describes the name of the key, the desctipion describes the value of the key, 
-                the data_type describes the type of the value, 
-                and required indicates whether the key is required or not. 
+                {data_model_descriptions.format(schema_here=json.dumps(data_structure, indent=2))}
                 """
             },
             {"role": "user", "content": str(json.dumps(event_details, indent=2))}
@@ -187,6 +202,10 @@ def generate_confirmation_message(event_details: json, data_structure=Confirmati
     log_json(result)
     
     return result
+
+# --------------------------------------------------------------
+# Step 3: Chain the functions together
+# --------------------------------------------------------------
 
 def process_calendar_request(user_input: str) -> json:
     """
