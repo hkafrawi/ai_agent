@@ -82,3 +82,38 @@ ConfirmationMessageModel = [{
 
 #function to print output from model
 print_json = lambda data: print(json.dumps(data, indent=2))
+
+def determine_event_extraction(user_input: str,data_structure = EventExtractionModel) -> json:
+    """
+    Step 1: Determine if the description is a calendar event.
+    """
+    logger.info("Starting event extraction analysis.")
+    logger.debug(f"User input: {user_input}")
+
+    today = datetime.now()
+    date_context = f"Today's date is {today.strftime('%Y-%m-%d')}."
+
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {
+                "role": "system",
+                "content": f"""{date_context}. Analyze if the text describes a calendar event.
+                always return a JSON object using the following format:
+                {json.dumps(data_structure, indent=2)} \n
+                the name describes the name of the key, the desctipion describes the value of the key, 
+                the data_type describes the type of the value, 
+                and required indicates whether the key is required or not. 
+                """
+            },
+            {"role": "user", "content": user_input}
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.5
+    )
+    result = response.choices[0].message.content
+    logger.info(
+        f"Event extraction analysis completed. is Calendar Event: {result['is_calendar_event']}, Confidence Score: {result['confidence_score']}")
+    
+    return result
