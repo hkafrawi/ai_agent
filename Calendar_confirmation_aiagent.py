@@ -12,6 +12,7 @@ from datetime import datetime
 from openai import OpenAI
 import os
 import logging
+import json
 
 config = configparser.ConfigParser()
 config.read("config.ini")
@@ -27,3 +28,57 @@ logger = logging.getLogger(__name__)
 
 client = OpenAI(api_key=deep_seek_api_key, base_url="https://api.deepseek.com")
 model = "deepseek-chat"  
+
+# --------------------------------------------------------------
+# Step 1: Define the data models for each stage
+# --------------------------------------------------------------
+
+# Data model for the event extraction stage
+EventExtractionModel = [{
+    "name":"description",
+    "description": "The raw description of the event to be extracted",
+    "data_type": "string",
+    "required": True},
+    {"name":"is_calendar_event",
+     "description": "Whether the description is a calendar event or not",
+     "data_type": "boolean",
+     "required": True},
+     {"name":"confidence_score",
+      "description": "LLM model confidence score of the event extraction",
+      "data_type": "float",
+      "required": True}
+    ]
+
+# Data Model for the calendar event details
+EventDetailsModel = [{
+    "name": "name_of_event",
+    "description": "The name of the calendar event",
+    "data_type": "string",
+    "required": True
+}, {
+    "name": "date",
+    "description": "Date and time of the event. Use ISO 8601 to format this value.",
+    "data_type": "string",
+    "required": True
+}, {
+    "name": "duration_minutes",
+    "description": "duration of the event in minutes",
+    "data_type": "int",
+    "required": True
+}, {
+    "name": "participants",
+    "description": "List of participants in the event",
+    "data_type": "list[str]",
+    "required": True
+}]
+
+# Data Model for confirmation message
+ConfirmationMessageModel = [{
+    "name": "confirmation_message",
+    "description": "natural language confirmation message for the event",
+    "data_type": "string",
+    "required": True
+}]
+
+#function to print output from model
+print_json = lambda data: print(json.dumps(data, indent=2))
