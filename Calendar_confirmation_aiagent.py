@@ -81,7 +81,8 @@ ConfirmationMessageModel = [{
 }]
 
 #function to print output from model
-print_json = lambda data: print(json.dumps(data, indent=2))
+log_json = lambda data: logger.info(json.dumps(data, indent=2))
+
 
 def determine_event_extraction(user_input: str,data_structure = EventExtractionModel) -> json:
     """
@@ -92,7 +93,6 @@ def determine_event_extraction(user_input: str,data_structure = EventExtractionM
 
     today = datetime.now()
     date_context = f"Today's date is {today.strftime('%Y-%m-%d')}."
-
 
     response = client.chat.completions.create(
         model=model,
@@ -113,7 +113,44 @@ def determine_event_extraction(user_input: str,data_structure = EventExtractionM
         temperature=0.5
     )
     result = response.choices[0].message.content
-    logger.info(
-        f"Event extraction analysis completed. is Calendar Event: {result['is_calendar_event']}, Confidence Score: {result['confidence_score']}")
+    logger.info("Event extraction analysis completed.")
+    log_json(result)
+                
+    
+    return result
+
+def extract_event_details(user_input: str, data_structure=EventDetailsModel) -> json:
+    """
+    Step 2: Extract details of the calendar event.
+    """
+    logger.info("Starting event details extraction.")
+    logger.debug(f"User input: {user_input}")
+
+    today = datetime.now()
+    date_context = f"Today's date is {today.strftime('%Y-%m-%d')}."
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {
+                "role": "system",
+                "content": f"""{date_context}.Extract the calendar event details from the text.
+                If need be, use the current date as a reference.
+                always return a JSON object using the following format:
+                {json.dumps(data_structure, indent=2)} \n
+                the name describes the name of the key, the desctipion describes the value of the key, 
+                the data_type describes the type of the value, 
+                and required indicates whether the key is required or not. 
+                """
+            },
+            {"role": "user", "content": user_input}
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.5
+    )
+    
+    result = response.choices[0].message.content
+    logger.info("Event details extraction completed.")
+    log_json(result)
     
     return result
