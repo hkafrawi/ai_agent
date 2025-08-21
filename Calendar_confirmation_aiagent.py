@@ -119,12 +119,12 @@ def determine_event_extraction(user_input: str,data_structure = EventExtractionM
     
     return result
 
-def extract_event_details(user_input: str, data_structure=EventDetailsModel) -> json:
+def extract_event_details(description: str, data_structure=EventDetailsModel) -> json:
     """
     Step 2: Extract details of the calendar event.
     """
     logger.info("Starting event details extraction.")
-    logger.debug(f"User input: {user_input}")
+    logger.debug(f"Description: {description}")
 
     today = datetime.now()
     date_context = f"Today's date is {today.strftime('%Y-%m-%d')}."
@@ -143,7 +143,7 @@ def extract_event_details(user_input: str, data_structure=EventDetailsModel) -> 
                 and required indicates whether the key is required or not. 
                 """
             },
-            {"role": "user", "content": user_input}
+            {"role": "user", "content": description}
         ],
         response_format={"type": "json_object"},
         temperature=0.5
@@ -187,3 +187,32 @@ def generate_confirmation_message(event_details: json, data_structure=Confirmati
     log_json(result)
     
     return result
+
+def process_calendar_request(user_input: str) -> json:
+    """
+    Main function to process the calendar request.
+    It chains the steps together to extract event details 
+    and generate a confirmation message.
+    """
+    logger.info("Processing calendar request.")
+    logger.debug(f"User input: {user_input}")
+    
+    # Step 1: Determine if the description is a calendar event
+    event_extraction = determine_event_extraction(user_input)
+    
+    if (not event_extraction.get("is_calendar_event", False)
+        or event_extraction.get("confidence_score", 0) < 0.7):
+        logger.warning("The input does not describe a calendar event.")
+        return None
+    
+    logger.info("Input is confirmed as a calendar event.")
+    
+    # Step 2: Extract details of the calendar event
+    event_details = extract_event_details(event_extraction["description"])
+    
+    # Step 3: Generate a confirmation message for the calendar event
+    confirmation_message = generate_confirmation_message(event_details)
+    
+    logger.info("Calendar request processing completed.")
+    
+    return confirmation_message
