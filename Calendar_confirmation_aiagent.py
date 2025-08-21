@@ -154,3 +154,36 @@ def extract_event_details(user_input: str, data_structure=EventDetailsModel) -> 
     log_json(result)
     
     return result
+
+def generate_confirmation_message(event_details: json, data_structure=ConfirmationMessageModel) -> json:
+    """
+    Step 3: Generate a confirmation message for the calendar event.
+    """
+    logger.info("Starting confirmation message generation.")
+    logger.debug(f"Event details: {json.dumps(event_details, indent=2)}")
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {
+                "role": "system",
+                "content": f"""Generate a natural language confirmation message for the calendar event.
+                Sign of with your name; Bob
+                always return a JSON object using the following format:
+                {json.dumps(data_structure, indent=2)} \n
+                the name describes the name of the key, the desctipion describes the value of the key, 
+                the data_type describes the type of the value, 
+                and required indicates whether the key is required or not. 
+                """
+            },
+            {"role": "user", "content": str(json.dumps(event_details, indent=2))}
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.5
+    )
+    
+    result = response.choices[0].message.content
+    logger.info("Confirmation message generation completed.")
+    log_json(result)
+    
+    return result
