@@ -26,12 +26,14 @@ def parse_meeting(client, user_prompt: str) -> CalendarMeeting:
         messages=[
             {
                 "role": "system",
-                "content": """Extract meeting details and return STRICT JSON with these EXACT fields:
-                        {
-                            "date": "datetime",
-                            "place": "meeting location",
-                            "participants": ["list", "of", "names"]
-                        }"""
+                "content": f"""
+                            You are an AI that extracts meeting details and outputs STRICT JSON.
+
+                            Use the following schema:
+                            {json.dumps(CalendarMeeting.model_json_schema(), indent=2)}
+
+                            Return only valid JSON.
+                            """
             },
             {"role": "user", "content": user_prompt}
         ],
@@ -42,13 +44,9 @@ def parse_meeting(client, user_prompt: str) -> CalendarMeeting:
     # Parse the JSON response
     try:
         json_str = response.choices[0].message.content
-        data = json.loads(json_str)
+        data = CalendarMeeting(**json.loads(json_str))
         
-        return CalendarMeeting(
-            date=datetime.fromisoformat(data["date"]),
-            place=data["place"],
-            participants=data["participants"]
-        )
+        return data
     except (KeyError, json.JSONDecodeError) as e:
         raise ValueError(f"Failed to parse response: {e}")
 

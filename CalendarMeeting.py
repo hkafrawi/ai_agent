@@ -1,11 +1,8 @@
 from datetime import datetime
 from typing import List
+from pydantic import BaseModel, Field
 
-class CalendarMeeting:
-    def __init__(self, date: datetime, place: str, participants: List[str]):
-        self.date = date
-        self.place = place
-        self.participants = participants
-
-    def __str__(self):
-        return f"Date: {self.date}, Place: {self.place}, Participants: {', '.join(self.participants)}"
+class CalendarMeeting(BaseModel):
+    date: datetime = Field(..., description="The date and time of the meeting")
+    place: str = Field(..., description="The location of the meeting")
+    participants: List[str] = Field(..., description="List of participants in the meeting")
