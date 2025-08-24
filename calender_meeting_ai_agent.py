@@ -21,6 +21,7 @@ client = OpenAI(api_key=deep_seek_api_key, base_url="https://api.deepseek.com")
 
 def parse_meeting(client, user_prompt: str) -> CalendarMeeting:
     # Force JSON output via system prompt
+    today = datetime.now().strftime("%Y-%m-%d")
     response = client.chat.completions.create(
         model="deepseek-chat",  # Use the correct model name
         messages=[
@@ -28,6 +29,7 @@ def parse_meeting(client, user_prompt: str) -> CalendarMeeting:
                 "role": "system",
                 "content": f"""
                             You are an AI that extracts meeting details and outputs STRICT JSON.
+                            Today's date is {today}.
 
                             Use the following schema:
                             {json.dumps(CalendarMeeting.model_json_schema(), indent=2)}
@@ -52,10 +54,10 @@ def parse_meeting(client, user_prompt: str) -> CalendarMeeting:
 
 # Example usage of parse_meeting function
 
-meeting_statement = """Arthur and Nora were having lunch today with Mustafa. 
-                    Mustafa said he will have a meeting on July 20,2025 
-                    with Nora at 9pm in the office."""
-meeting = parse_meeting(
-    client, meeting_statement
-)
-print(meeting) 
+# meeting_statement = """Arthur and Nora were having lunch today with Mustafa. 
+#                     Mustafa said he will have a meeting on July 20,2025 
+#                     with Nora at 9pm in the office."""
+# meeting = parse_meeting(
+#     client, meeting_statement
+# )
+# print(meeting) 
